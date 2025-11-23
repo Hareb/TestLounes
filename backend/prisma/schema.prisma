@@ -1,0 +1,480 @@
+// Schéma de base de données pour système de gestion d'auto-école
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// UTILISATEURS ET AUTHENTIFICATION
+// ============================================
+
+enum Role {
+  ADMIN           // Direction / Administrateur
+  SECRETARY       // Secrétariat
+  INSTRUCTOR      // Moniteur
+  STUDENT         // Élève
+}
+
+model User {
+  id            String   @id @default(cuid())
+  email         String   @unique
+  password      String
+  role          Role
+  firstName     String
+  lastName      String
+  phone         String?
+  avatar        String?
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // Relations
+  student       Student?
+  instructor    Instructor?
+
+  @@map("users")
+}
+
+// ============================================
+// ÉLÈVES
+// ============================================
+
+enum StudentStatus {
+  ACTIVE          // En formation
+  COMPLETED       // Formation terminée
+  SUSPENDED       // Suspendu
+  CANCELLED       // Annulé
+}
+
+enum FormationType {
+  TRADITIONAL     // Formation traditionnelle (B)
+  AAC             // Conduite accompagnée (AAC)
+  SUPERVISED      // Conduite supervisée
+  ACCELERATED     // Stage accéléré
+}
+
+model Student {
+  id                String         @id @default(cuid())
+  userId            String         @unique
+  user              User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Informations personnelles
+  dateOfBirth       DateTime
+  placeOfBirth      String
+  address           String
+  city              String
+  postalCode        String
+
+  // Documents administratifs
+  neph              String?        @unique // Numéro d'enregistrement préfectoral harmonisé
+  idCardNumber      String?
+  idCardExpiry      DateTime?
+
+  // Formation
+  formationType     FormationType  @default(TRADITIONAL)
+  status            StudentStatus  @default(ACTIVE)
+  registrationDate  DateTime       @default(now())
+
+  // Heures de formation
+  codeHoursPaid     Int            @default(0)
+  codeHoursUsed     Int            @default(0)
+  driveHoursPaid    Float          @default(0)
+  driveHoursUsed    Float          @default(0)
+
+  // Examens
+  codeExamDate      DateTime?
+  codeExamPassed    Boolean?
+  codeExamResult    DateTime?
+  driveExamDate     DateTime?
+  driveExamPassed   Boolean?
+  driveExamAttempts Int            @default(0)
+
+  // Évaluation initiale
+  initialEvaluation Float?         // Nombre d'heures estimées
+  evaluationDate    DateTime?
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  lessons           Lesson[]
+  payments          Payment[]
+  documents         Document[]
+  evaluations       Evaluation[]
+  invoices          Invoice[]
+
+  @@map("students")
+}
+
+// ============================================
+// MONITEURS
+// ============================================
+
+enum InstructorStatus {
+  ACTIVE
+  ON_LEAVE
+  INACTIVE
+}
+
+model Instructor {
+  id                String            @id @default(cuid())
+  userId            String            @unique
+  user              User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Qualifications
+  diploma           String            // BEPECASER ou Titre Pro
+  diplomaNumber     String
+  diplomaExpiry     DateTime?
+
+  // Disponibilités
+  status            InstructorStatus  @default(ACTIVE)
+  weeklyHours       Int               @default(35)
+
+  // Statistiques
+  totalHoursTaught  Float             @default(0)
+  successRate       Float?
+
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  // Relations
+  lessons           Lesson[]
+  availabilities    Availability[]
+  vehicles          Vehicle[]         // Véhicules assignés
+
+  @@map("instructors")
+}
+
+// ============================================
+// VÉHICULES
+// ============================================
+
+enum VehicleType {
+  CAR_MANUAL        // Voiture manuelle
+  CAR_AUTOMATIC     // Voiture automatique
+  MOTORCYCLE        // Moto
+  TRUCK             // Poids lourd
+}
+
+enum VehicleStatus {
+  AVAILABLE
+  IN_USE
+  MAINTENANCE
+  OUT_OF_SERVICE
+}
+
+model Vehicle {
+  id                String         @id @default(cuid())
+
+  // Informations véhicule
+  brand             String         // Renault, Peugeot, etc.
+  model             String
+  plateNumber       String         @unique
+  type              VehicleType
+  year              Int
+
+  // État
+  status            VehicleStatus  @default(AVAILABLE)
+  mileage           Int            @default(0)
+
+  // Entretien
+  lastMaintenance   DateTime?
+  nextMaintenance   DateTime?
+  technicalControl  DateTime?      // Contrôle technique
+  insuranceExpiry   DateTime
+
+  // Assignation
+  instructorId      String?
+  instructor        Instructor?    @relation(fields: [instructorId], references: [id])
+
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  // Relations
+  lessons           Lesson[]
+  maintenances      Maintenance[]
+
+  @@map("vehicles")
+}
+
+// ============================================
+// PLANNING ET LEÇONS
+// ============================================
+
+enum LessonType {
+  CODE              // Séance de code
+  DRIVE             // Leçon de conduite
+  EXAM_PREPARATION  // Préparation examen
+  EVALUATION        // Évaluation
+}
+
+enum LessonStatus {
+  SCHEDULED         // Planifiée
+  CONFIRMED         // Confirmée
+  COMPLETED         // Terminée
+  CANCELLED         // Annulée
+  NO_SHOW           // Élève absent
+}
+
+model Lesson {
+  id              String        @id @default(cuid())
+
+  // Participants
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  instructorId    String?
+  instructor      Instructor?   @relation(fields: [instructorId], references: [id])
+  vehicleId       String?
+  vehicle         Vehicle?      @relation(fields: [vehicleId], references: [id])
+
+  // Détails
+  type            LessonType
+  status          LessonStatus  @default(SCHEDULED)
+  startTime       DateTime
+  endTime         DateTime
+  duration        Float         // En heures (1.0, 1.5, 2.0, etc.)
+
+  // Contenu
+  topic           String?       // Sujet de la leçon
+  notes           String?       // Notes du moniteur
+  location        String?       // Lieu de RDV
+
+  // Annulation
+  cancelledAt     DateTime?
+  cancelReason    String?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("lessons")
+}
+
+// ============================================
+// DISPONIBILITÉS MONITEURS
+// ============================================
+
+enum DayOfWeek {
+  MONDAY
+  TUESDAY
+  WEDNESDAY
+  THURSDAY
+  FRIDAY
+  SATURDAY
+  SUNDAY
+}
+
+model Availability {
+  id            String      @id @default(cuid())
+  instructorId  String
+  instructor    Instructor  @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+
+  dayOfWeek     DayOfWeek
+  startTime     String      // Format: "09:00"
+  endTime       String      // Format: "18:00"
+  isRecurring   Boolean     @default(true)
+
+  // Pour les indisponibilités ponctuelles
+  specificDate  DateTime?
+
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  @@map("availabilities")
+}
+
+// ============================================
+// ÉVALUATIONS
+// ============================================
+
+model Evaluation {
+  id          String   @id @default(cuid())
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Compétences (Grille GDE française)
+  // Compétence 1 : Maîtriser le maniement du véhicule
+  competence1 Int      @default(0) // Score sur 5
+
+  // Compétence 2 : Appréhender la route et circuler
+  competence2 Int      @default(0)
+
+  // Compétence 3 : Circuler dans des conditions difficiles
+  competence3 Int      @default(0)
+
+  // Compétence 4 : Pratiquer une conduite autonome et sûre
+  competence4 Int      @default(0)
+
+  // Général
+  globalScore Float?
+  comments    String?
+  evaluator   String   // Nom du moniteur
+
+  createdAt   DateTime @default(now())
+
+  @@map("evaluations")
+}
+
+// ============================================
+// PAIEMENTS ET FACTURATION
+// ============================================
+
+enum PaymentMethod {
+  CASH              // Espèces
+  CARD              // Carte bancaire
+  TRANSFER          // Virement
+  CHECK             // Chèque
+  CPF               // Compte Personnel de Formation
+  INSTALLMENT       // Échelonnement
+}
+
+enum PaymentStatus {
+  PENDING           // En attente
+  COMPLETED         // Payé
+  FAILED            // Échoué
+  REFUNDED          // Remboursé
+}
+
+model Payment {
+  id              String        @id @default(cuid())
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  amount          Float
+  method          PaymentMethod
+  status          PaymentStatus @default(PENDING)
+
+  description     String?       // Description du paiement
+  transactionId   String?       // ID de transaction (Stripe, etc.)
+
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  invoiceId       String?
+  invoice         Invoice?      @relation(fields: [invoiceId], references: [id])
+
+  @@map("payments")
+}
+
+// ============================================
+// FACTURES
+// ============================================
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  OVERDUE
+  CANCELLED
+}
+
+model Invoice {
+  id              String        @id @default(cuid())
+  invoiceNumber   String        @unique
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Détails
+  status          InvoiceStatus @default(DRAFT)
+  totalAmount     Float
+  paidAmount      Float         @default(0)
+  dueDate         DateTime?
+
+  // Contenu
+  items           InvoiceItem[]
+
+  // Dates
+  issuedAt        DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  payments        Payment[]
+
+  @@map("invoices")
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  description String
+  quantity    Float
+  unitPrice   Float
+  totalPrice  Float
+
+  @@map("invoice_items")
+}
+
+// ============================================
+// DOCUMENTS
+// ============================================
+
+enum DocumentType {
+  ID_CARD           // Pièce d'identité
+  PROOF_ADDRESS     // Justificatif de domicile
+  MEDICAL_CERT      // Certificat médical
+  PHOTO             // Photo d'identité
+  CONTRACT          // Contrat de formation
+  TRAINING_BOOK     // Livret d'apprentissage
+  CERTIFICATE       // Attestation
+  OTHER             // Autre
+}
+
+model Document {
+  id          String        @id @default(cuid())
+  studentId   String
+  student     Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type        DocumentType
+  name        String
+  filePath    String
+  fileSize    Int?
+  mimeType    String?
+
+  expiryDate  DateTime?
+
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@map("documents")
+}
+
+// ============================================
+// ENTRETIEN VÉHICULES
+// ============================================
+
+enum MaintenanceType {
+  OIL_CHANGE        // Vidange
+  TIRE_CHANGE       // Changement pneus
+  BRAKE_CHECK       // Contrôle freins
+  TECHNICAL_CONTROL // Contrôle technique
+  REPAIR            // Réparation
+  OTHER             // Autre
+}
+
+model Maintenance {
+  id          String          @id @default(cuid())
+  vehicleId   String
+  vehicle     Vehicle         @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+
+  type        MaintenanceType
+  description String
+  cost        Float?
+  mileage     Int?
+
+  performedAt DateTime
+  nextDue     DateTime?
+
+  createdAt   DateTime        @default(now())
+
+  @@map("maintenances")
+}
