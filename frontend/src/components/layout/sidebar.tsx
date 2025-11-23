@@ -11,7 +11,11 @@ import {
   CreditCard,
   FileText,
   LogOut,
-  Settings
+  Settings,
+  Package,
+  CalendarCheck,
+  BookOpen,
+  Award
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store'
@@ -33,6 +37,10 @@ export function Sidebar({ role }: SidebarProps) {
     { icon: Users, label: t.nav.students, href: '/dashboard/students' },
     { icon: GraduationCap, label: t.nav.instructors, href: '/dashboard/instructors' },
     { icon: Car, label: t.nav.vehicles, href: '/dashboard/vehicles' },
+    { icon: Package, label: t.nav.packages, href: '/dashboard/packages' },
+    { icon: CalendarCheck, label: t.nav.bookings, href: '/dashboard/bookings' },
+    { icon: BookOpen, label: t.nav.logbook, href: '/dashboard/logbook' },
+    { icon: Award, label: t.nav.exams, href: '/dashboard/exams' },
     { icon: Calendar, label: t.nav.planning, href: '/dashboard/planning' },
     { icon: CreditCard, label: t.nav.payments, href: '/dashboard/payments' },
     { icon: FileText, label: t.nav.invoices, href: '/dashboard/invoices' },
@@ -40,12 +48,19 @@ export function Sidebar({ role }: SidebarProps) {
 
   const instructorMenuItems = [
     { icon: LayoutDashboard, label: t.dashboard.instructorDashboard, href: '/dashboard/instructor' },
+    { icon: CalendarCheck, label: t.nav.bookings, href: '/dashboard/bookings' },
+    { icon: BookOpen, label: t.nav.logbook, href: '/dashboard/logbook' },
+    { icon: Award, label: t.nav.exams, href: '/dashboard/exams' },
     { icon: Calendar, label: t.nav.planning, href: '/dashboard/instructor/planning' },
     { icon: Users, label: t.nav.students, href: '/dashboard/instructor/students' },
   ]
 
   const studentMenuItems = [
     { icon: LayoutDashboard, label: t.dashboard.studentDashboard, href: '/dashboard/student' },
+    { icon: Package, label: t.nav.packages, href: '/dashboard/packages' },
+    { icon: CalendarCheck, label: t.nav.bookings, href: '/dashboard/bookings' },
+    { icon: BookOpen, label: t.nav.logbook, href: '/dashboard/logbook' },
+    { icon: Award, label: t.nav.exams, href: '/dashboard/exams' },
     { icon: Calendar, label: t.students.lessons, href: '/dashboard/student/lessons' },
     { icon: CreditCard, label: t.nav.payments, href: '/dashboard/student/payments' },
     { icon: FileText, label: t.students.documents, href: '/dashboard/student/documents' },
