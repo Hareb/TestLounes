@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Input } from '@/components/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
 import { Plus, Package, TrendingUp, ShoppingCart, Clock, CheckCircle } from 'lucide-react'
 
 export default function PackagesPage() {
@@ -18,6 +20,17 @@ export default function PackagesPage() {
   const [loading, setLoading] = useState(true)
   const [userRole, setUserRole] = useState<string>('')
   const [studentId, setStudentId] = useState<string>('')
+  const [createModalOpen, setCreateModalOpen] = useState(false)
+  const [formData, setFormData] = useState({
+    name: '',
+    description: '',
+    type: 'COMPLETE' as 'CODE_ONLY' | 'DRIVE_ONLY' | 'COMPLETE' | 'HOURS_PACK',
+    codeHours: 0,
+    driveHours: 0,
+    price: 0,
+    validityMonths: 12,
+    isPopular: false,
+  })
 
   useEffect(() => {
     fetchData()
@@ -97,6 +110,46 @@ export default function PackagesPage() {
     }
   }
 
+  const handleCreatePackage = async () => {
+    try {
+      // Validate form
+      if (!formData.name || !formData.description) {
+        alert('Nom et description requis')
+        return
+      }
+      if (formData.price <= 0) {
+        alert('Le prix doit être supérieur à 0')
+        return
+      }
+      if (formData.codeHours === 0 && formData.driveHours === 0) {
+        alert('Au moins un type d\'heures (code ou conduite) doit être supérieur à 0')
+        return
+      }
+
+      await packageService.create(formData)
+      alert('Forfait créé avec succès !')
+      setCreateModalOpen(false)
+      // Reset form
+      setFormData({
+        name: '',
+        description: '',
+        type: 'COMPLETE',
+        codeHours: 0,
+        driveHours: 0,
+        price: 0,
+        validityMonths: 12,
+        isPopular: false,
+      })
+      fetchData()
+    } catch (error: any) {
+      alert(error.response?.data?.message || 'Erreur lors de la création')
+    }
+  }
+
+  const updateFormField = (field: string, value: any) => {
+    setFormData((prev) => ({ ...prev, [field]: value }))
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -116,7 +169,7 @@ export default function PackagesPage() {
           </p>
         </div>
         {(userRole === 'ADMIN' || userRole === 'SECRETARY') && (
-          <Button>
+          <Button onClick={() => setCreateModalOpen(true)}>
             <Plus className="h-4 w-4 mr-2" />
             {t.packages.add}
           </Button>
@@ -392,6 +445,145 @@ export default function PackagesPage() {
           ))}
         </div>
       )}
+
+      {/* Create Package Modal */}
+      <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Créer un nouveau forfait</DialogTitle>
+            <DialogDescription>
+              Définissez les détails du forfait qui sera disponible à l'achat par les élèves
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Name */}
+            <div className="space-y-2">
+              <Label htmlFor="name">Nom du forfait *</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => updateFormField('name', e.target.value)}
+                placeholder="Ex: Forfait Code + Conduite"
+              />
+            </div>
+
+            {/* Description */}
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Input
+                id="description"
+                value={formData.description}
+                onChange={(e) => updateFormField('description', e.target.value)}
+                placeholder="Description détaillée du forfait"
+              />
+            </div>
+
+            {/* Type */}
+            <div className="space-y-2">
+              <Label>Type de forfait *</Label>
+              <div className="grid grid-cols-2 gap-2">
+                {(['CODE_ONLY', 'DRIVE_ONLY', 'COMPLETE', 'HOURS_PACK'] as const).map((type) => (
+                  <label
+                    key={type}
+                    className={`flex items-center space-x-2 p-3 border rounded-lg cursor-pointer transition ${
+                      formData.type === type
+                        ? 'border-blue-600 bg-blue-50'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="type"
+                      value={type}
+                      checked={formData.type === type}
+                      onChange={(e) => updateFormField('type', e.target.value)}
+                      className="text-blue-600"
+                    />
+                    <span className="text-sm font-medium">{getPackageTypeLabel(type)}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Code Hours */}
+              <div className="space-y-2">
+                <Label htmlFor="codeHours">Heures de code</Label>
+                <Input
+                  id="codeHours"
+                  type="number"
+                  min="0"
+                  value={formData.codeHours}
+                  onChange={(e) => updateFormField('codeHours', parseInt(e.target.value) || 0)}
+                />
+              </div>
+
+              {/* Drive Hours */}
+              <div className="space-y-2">
+                <Label htmlFor="driveHours">Heures de conduite</Label>
+                <Input
+                  id="driveHours"
+                  type="number"
+                  min="0"
+                  value={formData.driveHours}
+                  onChange={(e) => updateFormField('driveHours', parseInt(e.target.value) || 0)}
+                />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              {/* Price */}
+              <div className="space-y-2">
+                <Label htmlFor="price">Prix (€) *</Label>
+                <Input
+                  id="price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={formData.price}
+                  onChange={(e) => updateFormField('price', parseFloat(e.target.value) || 0)}
+                />
+              </div>
+
+              {/* Validity Months */}
+              <div className="space-y-2">
+                <Label htmlFor="validityMonths">Validité (mois)</Label>
+                <Input
+                  id="validityMonths"
+                  type="number"
+                  min="1"
+                  value={formData.validityMonths}
+                  onChange={(e) => updateFormField('validityMonths', parseInt(e.target.value) || 12)}
+                />
+              </div>
+            </div>
+
+            {/* Is Popular */}
+            <div className="flex items-center space-x-2">
+              <input
+                id="isPopular"
+                type="checkbox"
+                checked={formData.isPopular}
+                onChange={(e) => updateFormField('isPopular', e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+              />
+              <Label htmlFor="isPopular" className="cursor-pointer">
+                Marquer comme forfait populaire
+              </Label>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setCreateModalOpen(false)}>
+              Annuler
+            </Button>
+            <Button onClick={handleCreatePackage}>
+              Créer le forfait
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
