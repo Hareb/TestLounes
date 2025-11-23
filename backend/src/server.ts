@@ -13,6 +13,10 @@ import paymentRoutes from './routes/payment.routes';
 import invoiceRoutes from './routes/invoice.routes';
 import dashboardRoutes from './routes/dashboard.routes';
 import pdfRoutes from './routes/pdf.routes';
+import packageRoutes from './routes/package.routes';
+import bookingRoutes from './routes/booking.routes';
+import logbookRoutes from './routes/logbook.routes';
+import examRoutes from './routes/exam.routes';
 
 // Middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -62,6 +66,10 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/pdf', pdfRoutes);
+app.use('/api/packages', packageRoutes);
+app.use('/api/bookings', bookingRoutes);
+app.use('/api/logbook', logbookRoutes);
+app.use('/api/exams', examRoutes);
 
 // ============================================
 // ERROR HANDLING

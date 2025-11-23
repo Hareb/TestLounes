@@ -107,6 +107,10 @@ model Student {
   documents         Document[]
   evaluations       Evaluation[]
   invoices          Invoice[]
+  packagePurchases  PackagePurchase[]
+  bookings          Booking[]
+  learningLogbook   LearningLogbook?
+  exams             Exam[]
 
   @@map("students")
 }
@@ -146,6 +150,7 @@ model Instructor {
   lessons           Lesson[]
   availabilities    Availability[]
   vehicles          Vehicle[]         // Véhicules assignés
+  bookings          Booking[]
 
   @@map("instructors")
 }
@@ -198,6 +203,7 @@ model Vehicle {
   // Relations
   lessons           Lesson[]
   maintenances      Maintenance[]
+  bookings          Booking[]
 
   @@map("vehicles")
 }
@@ -250,6 +256,10 @@ model Lesson {
 
   createdAt       DateTime      @default(now())
   updatedAt       DateTime      @updatedAt
+
+  // Relation avec réservation
+  bookingId       String?       @unique
+  booking         Booking?      @relation(fields: [bookingId], references: [id])
 
   @@map("lessons")
 }
@@ -477,4 +487,248 @@ model Maintenance {
   createdAt   DateTime        @default(now())
 
   @@map("maintenances")
+}
+
+// ============================================
+// FORFAITS ET PACKAGES
+// ============================================
+
+enum PackageType {
+  CODE_ONLY         // Code seul
+  DRIVE_ONLY        // Conduite seule
+  COMPLETE          // Code + Conduite
+  HOURS_PACK        // Pack d'heures supplémentaires
+}
+
+model Package {
+  id              String        @id @default(cuid())
+
+  name            String        // Ex: "Forfait Code", "20h conduite", "Forfait complet"
+  description     String?
+  type            PackageType
+
+  // Contenu du forfait
+  codeHours       Int           @default(0)  // Heures de code incluses
+  driveHours      Float         @default(0)  // Heures de conduite incluses
+
+  // Prix
+  price           Float
+
+  // Validité
+  validityMonths  Int?          // Durée de validité en mois (null = illimité)
+
+  // Disponibilité
+  isActive        Boolean       @default(true)
+  isPopular       Boolean       @default(false) // Mis en avant
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  purchases       PackagePurchase[]
+
+  @@map("packages")
+}
+
+model PackagePurchase {
+  id              String        @id @default(cuid())
+
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  packageId       String
+  package         Package       @relation(fields: [packageId], references: [id])
+
+  // Heures achetées
+  codeHoursBought     Int       @default(0)
+  driveHoursBought    Float     @default(0)
+
+  // Heures consommées
+  codeHoursUsed       Int       @default(0)
+  driveHoursUsed      Float     @default(0)
+
+  // Prix payé (peut différer du prix du package si promo)
+  pricePaid       Float
+
+  // Validité
+  purchaseDate    DateTime      @default(now())
+  expiryDate      DateTime?     // Date d'expiration du forfait
+
+  // Statut
+  isActive        Boolean       @default(true)
+  isExpired       Boolean       @default(false)
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("package_purchases")
+}
+
+// ============================================
+// RÉSERVATIONS
+// ============================================
+
+enum BookingStatus {
+  PENDING         // En attente de confirmation
+  CONFIRMED       // Confirmée
+  COMPLETED       // Effectuée
+  CANCELLED       // Annulée
+  NO_SHOW         // Absence élève
+}
+
+model Booking {
+  id              String        @id @default(cuid())
+
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  instructorId    String?
+  instructor      Instructor?   @relation(fields: [instructorId], references: [id])
+
+  vehicleId       String?
+  vehicle         Vehicle?      @relation(fields: [vehicleId], references: [id])
+
+  // Détails de la réservation
+  type            LessonType
+  startTime       DateTime
+  endTime         DateTime
+  duration        Float         // En heures
+
+  status          BookingStatus @default(PENDING)
+
+  // Notes
+  studentNotes    String?       // Notes de l'élève lors de la réservation
+  adminNotes      String?       // Notes internes
+
+  // Annulation
+  cancelledAt     DateTime?
+  cancelledBy     String?       // ID de l'utilisateur qui a annulé
+  cancelReason    String?
+
+  // Règles d'annulation
+  canCancel       Boolean       @default(true)
+  cancellationDeadline DateTime? // Date limite d'annulation gratuite
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  lesson          Lesson?       // Convertie en leçon une fois confirmée
+
+  @@map("bookings")
+}
+
+// ============================================
+// LIVRET D'APPRENTISSAGE (Grille GDE)
+// ============================================
+
+model LearningLogbook {
+  id              String        @id @default(cuid())
+
+  studentId       String        @unique
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Compétence 1 : Maîtriser le maniement du véhicule dans un trafic faible ou nul
+  // 7 sous-compétences notées sur 5
+  comp1_skill1    Int           @default(0) // Connaître les principaux organes
+  comp1_skill2    Int           @default(0) // Effectuer des vérifications
+  comp1_skill3    Int           @default(0) // Entrer, s'installer, sortir
+  comp1_skill4    Int           @default(0) // Tenir, tourner le volant
+  comp1_skill5    Int           @default(0) // Démarrer et s'arrêter
+  comp1_skill6    Int           @default(0) // Doser l'accélération et le freinage
+  comp1_skill7    Int           @default(0) // Utiliser la boîte de vitesses
+  comp1_validated Boolean       @default(false)
+
+  // Compétence 2 : Appréhender la route et circuler dans des conditions normales
+  comp2_skill1    Int           @default(0) // Connaître et respecter les règles
+  comp2_skill2    Int           @default(0) // Rechercher la signalisation
+  comp2_skill3    Int           @default(0) // Positionner le véhicule sur la chaussée
+  comp2_skill4    Int           @default(0) // Adapter l'allure aux situations
+  comp2_skill5    Int           @default(0) // Détecter et identifier les indices
+  comp2_skill6    Int           @default(0) // Tourner à droite et à gauche
+  comp2_skill7    Int           @default(0) // Franchir les intersections
+  comp2_validated Boolean       @default(false)
+
+  // Compétence 3 : Circuler dans des conditions difficiles et partager la route
+  comp3_skill1    Int           @default(0) // Évaluer et maintenir les distances
+  comp3_skill2    Int           @default(0) // Croiser, dépasser, être dépassé
+  comp3_skill3    Int           @default(0) // Passer des virages et conduire en déclivité
+  comp3_skill4    Int           @default(0) // Connaître les caractéristiques des autres usagers
+  comp3_skill5    Int           @default(0) // S'insérer, circuler, sortir d'une voie rapide
+  comp3_skill6    Int           @default(0) // Conduire dans une file de véhicules
+  comp3_skill7    Int           @default(0) // Conduire en situation de visibilité réduite
+  comp3_validated Boolean       @default(false)
+
+  // Compétence 4 : Pratiquer une conduite autonome, sûre et économique
+  comp4_skill1    Int           @default(0) // Suivre un itinéraire de manière autonome
+  comp4_skill2    Int           @default(0) // Préparer et effectuer un voyage longue distance
+  comp4_skill3    Int           @default(0) // Connaître les comportements à risque
+  comp4_skill4    Int           @default(0) // Connaître les facteurs de vigilance
+  comp4_skill5    Int           @default(0) // Prendre conscience des responsabilités
+  comp4_skill6    Int           @default(0) // Connaître les comportements économiques
+  comp4_skill7    Int           @default(0) // Connaître les aides à la conduite
+  comp4_validated Boolean       @default(false)
+
+  // Progression globale
+  overallProgress Float         @default(0) // Pourcentage de 0 à 100
+  isComplete      Boolean       @default(false)
+  completedAt     DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("learning_logbooks")
+}
+
+// ============================================
+// EXAMENS
+// ============================================
+
+enum ExamType {
+  CODE          // Examen du code
+  DRIVE         // Examen de conduite
+}
+
+enum ExamStatus {
+  SCHEDULED     // Programmé
+  PASSED        // Réussi
+  FAILED        // Échoué
+  CANCELLED     // Annulé
+  NO_SHOW       // Absence
+}
+
+model Exam {
+  id              String        @id @default(cuid())
+
+  studentId       String
+  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  type            ExamType
+  status          ExamStatus    @default(SCHEDULED)
+
+  // Détails examen
+  examDate        DateTime
+  examCenter      String?       // Centre d'examen
+  examAddress     String?
+
+  // Résultat
+  result          Boolean?      // true = réussi, false = échoué
+  score           Int?          // Score obtenu (pour code)
+  maxScore        Int?          // Score maximum (40 pour code)
+
+  // Notes
+  notes           String?       // Commentaires de l'examinateur
+  faults          String?       // Fautes commises (pour conduite)
+
+  // Accompagnateur (pour conduite)
+  accompaniedBy   String?       // Nom du moniteur accompagnateur
+
+  // Documents
+  convocationSent Boolean       @default(false)
+  convocationDate DateTime?
+
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  @@map("exams")
 }
