@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <style>
+        body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background-color: #f59e0b; color: white; padding: 20px; text-align: center; }
+        .content { padding: 30px; background-color: #f9fafb; }
+        .info-box { background-color: white; border-left: 4px solid #f59e0b; padding: 15px; margin: 20px 0; }
+        .footer { text-align: center; padding: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>⚠ Leçon Annulée</h1>
+        </div>
+        <div class="content">
+            <h2>Bonjour {{studentName}} !</h2>
+            <p>Votre leçon a été annulée.</p>
+            <div class="info-box">
+                <p><strong>Date annulée :</strong> {{lessonDate}}</p>
+                <p><strong>Raison :</strong> {{reason}}</p>
+            </div>
+            <p>Nous vous invitons à reprogrammer votre leçon dès que possible depuis votre espace personnel.</p>
+            <p>Nous nous excusons pour la gêne occasionnée.</p>
+            <p><strong>L'équipe de l'Auto-École</strong></p>
+        </div>
+        <div class="footer">
+            © 2024 Auto-École - Tous droits réservés
+        </div>
+    </div>
+</body>
+</html>

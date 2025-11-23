@@ -12,6 +12,7 @@ import lessonRoutes from './routes/lesson.routes';
 import paymentRoutes from './routes/payment.routes';
 import invoiceRoutes from './routes/invoice.routes';
 import dashboardRoutes from './routes/dashboard.routes';
+import pdfRoutes from './routes/pdf.routes';
 
 // Middleware
 import { errorHandler } from './middleware/error.middleware';
@@ -60,6 +61,7 @@ app.use('/api/lessons', lessonRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/invoices', invoiceRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/pdf', pdfRoutes);
 
 // ============================================
 // ERROR HANDLING
