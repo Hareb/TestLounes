@@ -32,12 +32,23 @@ export default function StudentsPage() {
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const [total, setTotal] = useState(0)
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [formationTypeFilter, setFormationTypeFilter] = useState<string>('')
+  const [codeExamFilter, setCodeExamFilter] = useState<string>('')
   const { toast } = useToast()
 
   const fetchStudents = async () => {
     try {
       setLoading(true)
-      const response = await studentService.getAll({ search, page, limit: 10 })
+      const params: any = { search, page, limit: 10 }
+
+      // Add filters if set
+      if (statusFilter) params.status = statusFilter
+      if (formationTypeFilter) params.formationType = formationTypeFilter
+      if (codeExamFilter === 'passed') params.codeExamPassed = true
+      if (codeExamFilter === 'notPassed') params.codeExamPassed = false
+
+      const response = await studentService.getAll(params)
       setStudents(response.data.data.students)
       setTotal(response.data.data.pagination.total)
     } catch (error) {
@@ -53,7 +64,7 @@ export default function StudentsPage() {
 
   useEffect(() => {
     fetchStudents()
-  }, [search, page])
+  }, [search, page, statusFilter, formationTypeFilter, codeExamFilter])
 
   const getStatusBadge = (status: string) => {
     const variants: Record<string, any> = {
@@ -90,9 +101,9 @@ export default function StudentsPage() {
         </Button>
       </div>
 
-      {/* Search */}
+      {/* Search and Filters */}
       <Card>
-        <CardContent className="pt-6">
+        <CardContent className="pt-6 space-y-4">
           <div className="flex items-center space-x-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
@@ -103,6 +114,63 @@ export default function StudentsPage() {
                 className="pl-10"
               />
             </div>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-wrap gap-3">
+            <div className="flex-1 min-w-[180px]">
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tous les statuts</option>
+                <option value="ACTIVE">Actif</option>
+                <option value="COMPLETED">Terminé</option>
+                <option value="SUSPENDED">Suspendu</option>
+                <option value="CANCELLED">Annulé</option>
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[180px]">
+              <select
+                value={formationTypeFilter}
+                onChange={(e) => setFormationTypeFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Tous les types</option>
+                <option value="TRADITIONAL">Classique</option>
+                <option value="AAC">AAC</option>
+                <option value="SUPERVISED">Supervisée</option>
+                <option value="ACCELERATED">Accélérée</option>
+              </select>
+            </div>
+
+            <div className="flex-1 min-w-[180px]">
+              <select
+                value={codeExamFilter}
+                onChange={(e) => setCodeExamFilter(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">Code - Tous</option>
+                <option value="passed">Réussi</option>
+                <option value="notPassed">En cours</option>
+              </select>
+            </div>
+
+            {(statusFilter || formationTypeFilter || codeExamFilter) && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setStatusFilter('')
+                  setFormationTypeFilter('')
+                  setCodeExamFilter('')
+                }}
+              >
+                Réinitialiser
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>

@@ -14,6 +14,7 @@ import { Calendar, Clock, User, CheckCircle, XCircle, AlertCircle } from 'lucide
 export default function BookingsPage() {
   const { t } = useTranslation()
   const [bookings, setBookings] = useState<any[]>([])
+  const [filteredBookings, setFilteredBookings] = useState<any[]>([])
   const [availableSlots, setAvailableSlots] = useState<any[]>([])
   const [instructors, setInstructors] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
@@ -25,6 +26,8 @@ export default function BookingsPage() {
     duration: 1,
     studentNotes: '',
   })
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [typeFilter, setTypeFilter] = useState<string>('')
 
   useEffect(() => {
     fetchData()
@@ -35,6 +38,10 @@ export default function BookingsPage() {
       fetchAvailableSlots()
     }
   }, [selectedDate, selectedInstructor])
+
+  useEffect(() => {
+    applyFilters()
+  }, [bookings, statusFilter, typeFilter])
 
   const fetchData = async () => {
     try {
@@ -53,6 +60,20 @@ export default function BookingsPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  const applyFilters = () => {
+    let filtered = [...bookings]
+
+    if (statusFilter) {
+      filtered = filtered.filter(b => b.status === statusFilter)
+    }
+
+    if (typeFilter) {
+      filtered = filtered.filter(b => b.type === typeFilter)
+    }
+
+    setFilteredBookings(filtered)
   }
 
   const fetchAvailableSlots = async () => {
@@ -321,15 +342,63 @@ export default function BookingsPage() {
 
         {/* My Bookings List */}
         <TabsContent value="list" className="space-y-4">
-          {bookings.length === 0 ? (
+          {/* Filters */}
+          <Card>
+            <CardContent className="pt-6">
+              <div className="flex flex-wrap gap-3">
+                <div className="flex-1 min-w-[180px]">
+                  <select
+                    value={statusFilter}
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Tous les statuts</option>
+                    <option value="PENDING">En attente</option>
+                    <option value="CONFIRMED">Confirmée</option>
+                    <option value="COMPLETED">Complétée</option>
+                    <option value="CANCELLED">Annulée</option>
+                    <option value="NO_SHOW">Absent</option>
+                  </select>
+                </div>
+
+                <div className="flex-1 min-w-[180px]">
+                  <select
+                    value={typeFilter}
+                    onChange={(e) => setTypeFilter(e.target.value)}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="">Tous les types</option>
+                    <option value="DRIVE">Conduite</option>
+                    <option value="CODE">Code</option>
+                    <option value="EVALUATION">Évaluation</option>
+                  </select>
+                </div>
+
+                {(statusFilter || typeFilter) && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      setStatusFilter('')
+                      setTypeFilter('')
+                    }}
+                  >
+                    Réinitialiser
+                  </Button>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {filteredBookings.length === 0 ? (
             <Card>
               <CardContent className="py-10 text-center">
-                <p className="text-gray-500">{t.common.noData}</p>
+                <p className="text-gray-500">{bookings.length === 0 ? t.common.noData : 'Aucune réservation correspondante'}</p>
               </CardContent>
             </Card>
           ) : (
             <div className="space-y-4">
-              {bookings.map((booking) => (
+              {filteredBookings.map((booking) => (
                 <Card key={booking.id}>
                   <CardHeader>
                     <div className="flex justify-between items-start">
