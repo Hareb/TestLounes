@@ -16,6 +16,8 @@ import {
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/lib/store'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from '@/lib/i18n/i18n-context'
+import { LanguageSelector } from '@/components/language-selector'
 
 interface SidebarProps {
   role: 'ADMIN' | 'SECRETARY' | 'INSTRUCTOR' | 'STUDENT'
@@ -24,28 +26,29 @@ interface SidebarProps {
 export function Sidebar({ role }: SidebarProps) {
   const pathname = usePathname()
   const { user, logout } = useAuthStore()
+  const { t } = useTranslation()
 
   const adminMenuItems = [
-    { icon: LayoutDashboard, label: 'Dashboard', href: '/dashboard' },
-    { icon: Users, label: 'Élèves', href: '/dashboard/students' },
-    { icon: GraduationCap, label: 'Moniteurs', href: '/dashboard/instructors' },
-    { icon: Car, label: 'Véhicules', href: '/dashboard/vehicles' },
-    { icon: Calendar, label: 'Planning', href: '/dashboard/planning' },
-    { icon: CreditCard, label: 'Paiements', href: '/dashboard/payments' },
-    { icon: FileText, label: 'Factures', href: '/dashboard/invoices' },
+    { icon: LayoutDashboard, label: t.nav.dashboard, href: '/dashboard' },
+    { icon: Users, label: t.nav.students, href: '/dashboard/students' },
+    { icon: GraduationCap, label: t.nav.instructors, href: '/dashboard/instructors' },
+    { icon: Car, label: t.nav.vehicles, href: '/dashboard/vehicles' },
+    { icon: Calendar, label: t.nav.planning, href: '/dashboard/planning' },
+    { icon: CreditCard, label: t.nav.payments, href: '/dashboard/payments' },
+    { icon: FileText, label: t.nav.invoices, href: '/dashboard/invoices' },
   ]
 
   const instructorMenuItems = [
-    { icon: LayoutDashboard, label: 'Mon Tableau de Bord', href: '/dashboard/instructor' },
-    { icon: Calendar, label: 'Mon Planning', href: '/dashboard/instructor/planning' },
-    { icon: Users, label: 'Mes Élèves', href: '/dashboard/instructor/students' },
+    { icon: LayoutDashboard, label: t.dashboard.instructorDashboard, href: '/dashboard/instructor' },
+    { icon: Calendar, label: t.nav.planning, href: '/dashboard/instructor/planning' },
+    { icon: Users, label: t.nav.students, href: '/dashboard/instructor/students' },
   ]
 
   const studentMenuItems = [
-    { icon: LayoutDashboard, label: 'Mon Tableau de Bord', href: '/dashboard/student' },
-    { icon: Calendar, label: 'Mes Leçons', href: '/dashboard/student/lessons' },
-    { icon: CreditCard, label: 'Mes Paiements', href: '/dashboard/student/payments' },
-    { icon: FileText, label: 'Mes Documents', href: '/dashboard/student/documents' },
+    { icon: LayoutDashboard, label: t.dashboard.studentDashboard, href: '/dashboard/student' },
+    { icon: Calendar, label: t.students.lessons, href: '/dashboard/student/lessons' },
+    { icon: CreditCard, label: t.nav.payments, href: '/dashboard/student/payments' },
+    { icon: FileText, label: t.students.documents, href: '/dashboard/student/documents' },
   ]
 
   const menuItems =
@@ -57,17 +60,20 @@ export function Sidebar({ role }: SidebarProps) {
     <div className="flex flex-col h-full bg-gray-900 text-white w-64">
       {/* Header */}
       <div className="p-6">
-        <div className="flex items-center space-x-2">
-          <Car className="w-8 h-8 text-blue-400" />
-          <div>
-            <h1 className="text-xl font-bold">Auto-École</h1>
-            <p className="text-xs text-gray-400">
-              {role === 'ADMIN' ? 'Administrateur' :
-               role === 'SECRETARY' ? 'Secrétariat' :
-               role === 'INSTRUCTOR' ? 'Moniteur' :
-               'Élève'}
-            </p>
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Car className="w-8 h-8 text-blue-400" />
+            <div>
+              <h1 className="text-xl font-bold">Auto-École</h1>
+              <p className="text-xs text-gray-400">
+                {role === 'ADMIN' ? 'Admin' :
+                 role === 'SECRETARY' ? 'Secretary' :
+                 role === 'INSTRUCTOR' ? 'Instructor' :
+                 'Student'}
+              </p>
+            </div>
           </div>
+          <LanguageSelector />
         </div>
       </div>
 
@@ -121,14 +127,14 @@ export function Sidebar({ role }: SidebarProps) {
           className="flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-gray-800 hover:text-white transition-colors"
         >
           <Settings className="w-5 h-5" />
-          <span className="text-sm font-medium">Paramètres</span>
+          <span className="text-sm font-medium">{t.nav.settings}</span>
         </Link>
         <button
           onClick={logout}
           className="w-full flex items-center space-x-3 px-3 py-2 rounded-lg text-gray-300 hover:bg-red-600 hover:text-white transition-colors"
         >
           <LogOut className="w-5 h-5" />
-          <span className="text-sm font-medium">Déconnexion</span>
+          <span className="text-sm font-medium">{t.nav.logout}</span>
         </button>
       </div>
     </div>
