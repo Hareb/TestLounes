@@ -162,3 +162,104 @@ export const dashboardService = {
   getInstructorDashboard: () =>
     api.get('/dashboard/instructor'),
 };
+
+export const packageService = {
+  getAll: (params?: { active?: boolean }) =>
+    api.get('/packages', { params }),
+
+  getById: (id: string) =>
+    api.get(`/packages/${id}`),
+
+  create: (data: any) =>
+    api.post('/packages', data),
+
+  update: (id: string, data: any) =>
+    api.put(`/packages/${id}`, data),
+
+  delete: (id: string) =>
+    api.delete(`/packages/${id}`),
+
+  purchase: (id: string, data: { studentId: string; pricePaid: number }) =>
+    api.post(`/packages/${id}/purchase`, data),
+
+  getStudentPackages: (studentId: string) =>
+    api.get(`/packages/student/${studentId}`),
+
+  updateUsedHours: (id: string, data: { codeHoursUsed?: number; driveHoursUsed?: number }) =>
+    api.put(`/packages/purchase/${id}/hours`, data),
+
+  getStats: () =>
+    api.get('/packages/stats'),
+};
+
+export const bookingService = {
+  getAll: (params?: any) =>
+    api.get('/bookings', { params }),
+
+  getById: (id: string) =>
+    api.get(`/bookings/${id}`),
+
+  create: (data: any) =>
+    api.post('/bookings', data),
+
+  confirm: (id: string, data: any) =>
+    api.put(`/bookings/${id}/confirm`, data),
+
+  cancel: (id: string, data: { cancelReason: string }) =>
+    api.put(`/bookings/${id}/cancel`, data),
+
+  convertToLesson: (id: string) =>
+    api.post(`/bookings/${id}/convert-to-lesson`, {}),
+
+  markNoShow: (id: string, data: { adminNotes: string }) =>
+    api.put(`/bookings/${id}/no-show`, data),
+
+  getAvailableSlots: (params: { date: string; instructorId?: string; type?: string }) =>
+    api.get('/bookings/available-slots', { params }),
+};
+
+export const logbookService = {
+  getByStudentId: (studentId: string) =>
+    api.get(`/logbook/student/${studentId}`),
+
+  getProgressSummary: (studentId: string) =>
+    api.get(`/logbook/student/${studentId}/progress`),
+
+  updateSkills: (studentId: string, data: any) =>
+    api.put(`/logbook/student/${studentId}`, data),
+
+  validateCompetence: (studentId: string, competence: number) =>
+    api.post(`/logbook/student/${studentId}/validate-competence`, { competence }),
+
+  getGDEGrid: () =>
+    api.get('/logbook/gde-grid'),
+};
+
+export const examService = {
+  getAll: (params?: any) =>
+    api.get('/exams', { params }),
+
+  getById: (id: string) =>
+    api.get(`/exams/${id}`),
+
+  create: (data: any) =>
+    api.post('/exams', data),
+
+  update: (id: string, data: any) =>
+    api.put(`/exams/${id}`, data),
+
+  recordResult: (id: string, data: any) =>
+    api.put(`/exams/${id}/result`, data),
+
+  sendConvocation: (id: string) =>
+    api.post(`/exams/${id}/convocation`, {}),
+
+  cancel: (id: string, notes?: string) =>
+    api.put(`/exams/${id}/cancel`, { notes }),
+
+  markNoShow: (id: string, notes?: string) =>
+    api.put(`/exams/${id}/no-show`, { notes }),
+
+  getStats: () =>
+    api.get('/exams/stats'),
+};
