@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Users, GraduationCap, Car, Calendar, Euro, TrendingUp } from 'lucide-react'
-import { dashboardService } from '@/lib/api'
+import { Button } from '@/components/ui/button'
+import { Users, GraduationCap, Car, Calendar, Euro, TrendingUp, Package, CalendarCheck, Award, ArrowRight } from 'lucide-react'
+import { dashboardService, packageService, examService, bookingService } from '@/lib/api'
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -24,22 +26,51 @@ interface DashboardStats {
 
 export default function DashboardPage() {
   const [stats, setStats] = useState<DashboardStats | null>(null)
+  const [packageStats, setPackageStats] = useState<any>(null)
+  const [examStats, setExamStats] = useState<any>(null)
+  const [pendingBookings, setPendingBookings] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const response = await dashboardService.getStats()
-        setStats(response.data.data)
-      } catch (error) {
-        console.error('Error fetching stats:', error)
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchStats()
+    fetchAllStats()
   }, [])
+
+  const fetchAllStats = async () => {
+    try {
+      // Fetch main stats
+      const response = await dashboardService.getStats()
+      setStats(response.data.data)
+
+      // Fetch package stats
+      try {
+        const pkgStatsRes = await packageService.getStats()
+        setPackageStats(pkgStatsRes.data.data)
+      } catch (error) {
+        console.error('Error fetching package stats:', error)
+      }
+
+      // Fetch exam stats
+      try {
+        const examStatsRes = await examService.getStats()
+        setExamStats(examStatsRes.data.data)
+      } catch (error) {
+        console.error('Error fetching exam stats:', error)
+      }
+
+      // Fetch pending bookings
+      try {
+        const bookingsRes = await bookingService.getAll()
+        const pending = bookingsRes.data.data?.filter((b: any) => b.status === 'PENDING') || []
+        setPendingBookings(pending.slice(0, 5)) // Show only first 5
+      } catch (error) {
+        console.error('Error fetching bookings:', error)
+      }
+    } catch (error) {
+      console.error('Error fetching stats:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   if (loading) {
     return (
@@ -60,194 +91,272 @@ export default function DashboardPage() {
     )
   }
 
-  const statCards = [
-    {
-      title: 'Élèves Actifs',
-      value: `${stats.overview.activeStudents}/${stats.overview.totalStudents}`,
-      icon: Users,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-    },
-    {
-      title: 'Moniteurs',
-      value: stats.overview.totalInstructors,
-      icon: GraduationCap,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-    },
-    {
-      title: 'Véhicules',
-      value: stats.overview.totalVehicles,
-      icon: Car,
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-    },
-    {
-      title: 'Leçons Complétées',
-      value: stats.overview.completedLessons,
-      icon: Calendar,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-    },
-    {
-      title: 'Revenu Total',
-      value: formatCurrency(stats.overview.totalRevenue),
-      icon: Euro,
-      color: 'text-emerald-600',
-      bgColor: 'bg-emerald-100',
-    },
-    {
-      title: 'Taux de Réussite',
-      value: '78%',
-      icon: TrendingUp,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100',
-    },
-  ]
-
   return (
-    <div className="space-y-8">
+    <div className="p-6 space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-3xl font-bold text-gray-900">Tableau de Bord</h1>
-        <p className="text-gray-600">Vue d&apos;ensemble de votre auto-école</p>
+        <p className="text-gray-600">Vue d'ensemble de votre auto-école</p>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-        {statCards.map((stat) => {
-          const Icon = stat.icon
-          return (
-            <Card key={stat.title}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">
-                  {stat.title}
-                </CardTitle>
-                <div className={`p-2 rounded-lg ${stat.bgColor}`}>
-                  <Icon className={`w-4 h-4 ${stat.color}`} />
+      {/* Main Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Élèves Actifs</CardTitle>
+            <div className="p-2 rounded-lg bg-blue-100">
+              <Users className="w-4 h-4 text-blue-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.overview.activeStudents}</div>
+            <p className="text-xs text-muted-foreground">
+              / {stats.overview.totalStudents} total
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Moniteurs</CardTitle>
+            <div className="p-2 rounded-lg bg-green-100">
+              <GraduationCap className="w-4 h-4 text-green-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.overview.totalInstructors}</div>
+            <p className="text-xs text-muted-foreground">actifs</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Leçons Complétées</CardTitle>
+            <div className="p-2 rounded-lg bg-orange-100">
+              <Calendar className="w-4 h-4 text-orange-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{stats.overview.completedLessons}</div>
+            <p className="text-xs text-muted-foreground">ce mois-ci</p>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Revenu Total</CardTitle>
+            <div className="p-2 rounded-lg bg-emerald-100">
+              <Euro className="w-4 h-4 text-emerald-600" />
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{formatCurrency(stats.overview.totalRevenue)}</div>
+            <p className="text-xs text-muted-foreground">toutes sources</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Phase 4 Stats Grid */}
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Package Stats */}
+        {packageStats && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Forfaits Vendus</CardTitle>
+              <Package className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{packageStats.totalPurchases}</div>
+              <p className="text-xs text-muted-foreground">
+                {packageStats.activePurchases} actifs
+              </p>
+              <div className="pt-2 text-sm text-emerald-600 font-semibold">
+                {formatCurrency(packageStats.totalRevenue)}
+              </div>
+              <Link href="/dashboard/packages">
+                <Button variant="link" size="sm" className="p-0 h-auto mt-2">
+                  Voir détails <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Booking Stats */}
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Réservations</CardTitle>
+            <CalendarCheck className="w-4 h-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingBookings.length}</div>
+            <p className="text-xs text-muted-foreground">en attente de confirmation</p>
+            {pendingBookings.length > 0 && (
+              <Link href="/dashboard/bookings">
+                <Button variant="link" size="sm" className="p-0 h-auto mt-2 text-orange-600">
+                  Confirmer <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Exam Stats */}
+        {examStats && (
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Taux de Réussite</CardTitle>
+              <Award className="w-4 h-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Code:</span>
+                  <span className="text-lg font-bold text-blue-600">{examStats.codePassRate.toFixed(0)}%</span>
                 </div>
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-              </CardContent>
-            </Card>
-          )
-        })}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-500">Conduite:</span>
+                  <span className="text-lg font-bold text-green-600">{examStats.drivePassRate.toFixed(0)}%</span>
+                </div>
+              </div>
+              <Link href="/dashboard/exams">
+                <Button variant="link" size="sm" className="p-0 h-auto mt-2">
+                  Voir stats <ArrowRight className="w-3 h-3 ml-1" />
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        )}
       </div>
 
-      {/* Upcoming Lessons */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Leçons à Venir (7 prochains jours)</CardTitle>
-          <CardDescription>
-            {stats.upcomingLessons.length} leçons planifiées
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats.upcomingLessons.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Aucune leçon prévue</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Élève</TableHead>
-                  <TableHead>Moniteur</TableHead>
-                  <TableHead>Type</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.upcomingLessons.map((lesson) => (
-                  <TableRow key={lesson.id}>
-                    <TableCell>
-                      {new Date(lesson.startTime).toLocaleDateString('fr-FR', {
+      {/* Pending Bookings Alert */}
+      {pendingBookings.length > 0 && (
+        <Card className="border-orange-200 bg-orange-50">
+          <CardHeader>
+            <div className="flex justify-between items-center">
+              <div>
+                <CardTitle className="text-orange-900">Réservations en Attente</CardTitle>
+                <CardDescription className="text-orange-700">
+                  {pendingBookings.length} réservation(s) nécessitent votre confirmation
+                </CardDescription>
+              </div>
+              <Link href="/dashboard/bookings">
+                <Button variant="outline" size="sm">
+                  Voir tout
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              </Link>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="space-y-2">
+              {pendingBookings.slice(0, 3).map((booking) => (
+                <div key={booking.id} className="flex justify-between items-center p-3 bg-white rounded-lg">
+                  <div>
+                    <p className="font-medium">
+                      {booking.student.user.firstName} {booking.student.user.lastName}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      {new Date(booking.startTime).toLocaleDateString('fr-FR', {
                         day: '2-digit',
                         month: 'short',
                         hour: '2-digit',
-                        minute: '2-digit'
+                        minute: '2-digit',
                       })}
-                    </TableCell>
-                    <TableCell>
-                      {lesson.student.user.firstName} {lesson.student.user.lastName}
-                    </TableCell>
-                    <TableCell>
-                      {lesson.instructor?.user.firstName} {lesson.instructor?.user.lastName}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={lesson.type === 'DRIVE' ? 'default' : 'secondary'}>
-                        {lesson.type === 'DRIVE' ? 'Conduite' :
-                         lesson.type === 'CODE' ? 'Code' :
-                         lesson.type === 'EVALUATION' ? 'Évaluation' : 'Examen'}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={lesson.status === 'CONFIRMED' ? 'success' : 'outline'}>
-                        {lesson.status === 'CONFIRMED' ? 'Confirmée' : 'Planifiée'}
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+                      {' - '}
+                      {booking.type}
+                    </p>
+                  </div>
+                  <Badge variant="secondary">En attente</Badge>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Recent Payments */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Paiements Récents</CardTitle>
-          <CardDescription>
-            Dernières transactions enregistrées
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          {stats.recentPayments.length === 0 ? (
-            <p className="text-gray-500 text-center py-4">Aucun paiement récent</p>
-          ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Date</TableHead>
-                  <TableHead>Élève</TableHead>
-                  <TableHead>Montant</TableHead>
-                  <TableHead>Méthode</TableHead>
-                  <TableHead>Statut</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {stats.recentPayments.map((payment) => (
-                  <TableRow key={payment.id}>
-                    <TableCell>
-                      {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
-                    </TableCell>
-                    <TableCell>
-                      {payment.student.user.firstName} {payment.student.user.lastName}
-                    </TableCell>
-                    <TableCell className="font-semibold">
-                      {formatCurrency(payment.amount)}
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">
+      <div className="grid gap-6 lg:grid-cols-2">
+        {/* Upcoming Lessons */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Leçons à Venir (7 prochains jours)</CardTitle>
+            <CardDescription>
+              {stats.upcomingLessons.length} leçons planifiées
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.upcomingLessons.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Aucune leçon prévue</p>
+            ) : (
+              <div className="space-y-3">
+                {stats.upcomingLessons.slice(0, 5).map((lesson) => (
+                  <div key={lesson.id} className="flex justify-between items-center p-3 border rounded-lg">
+                    <div className="flex-1">
+                      <p className="font-medium">
+                        {lesson.student.user.firstName} {lesson.student.user.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(lesson.startTime).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          hour: '2-digit',
+                          minute: '2-digit',
+                        })}
+                        {' avec '}
+                        {lesson.instructor?.user.firstName}
+                      </p>
+                    </div>
+                    <Badge variant={lesson.type === 'DRIVE' ? 'default' : 'secondary'}>
+                      {lesson.type === 'DRIVE' ? 'Conduite' :
+                       lesson.type === 'CODE' ? 'Code' :
+                       lesson.type === 'EVALUATION' ? 'Évaluation' : 'Examen'}
+                    </Badge>
+                  </div>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Recent Payments */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Paiements Récents</CardTitle>
+            <CardDescription>
+              Dernières transactions enregistrées
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            {stats.recentPayments.length === 0 ? (
+              <p className="text-gray-500 text-center py-4">Aucun paiement récent</p>
+            ) : (
+              <div className="space-y-3">
+                {stats.recentPayments.slice(0, 5).map((payment) => (
+                  <div key={payment.id} className="flex justify-between items-center p-3 border rounded-lg">
+                    <div>
+                      <p className="font-medium">
+                        {payment.student.user.firstName} {payment.student.user.lastName}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {new Date(payment.createdAt).toLocaleDateString('fr-FR')}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-semibold text-emerald-600">{formatCurrency(payment.amount)}</p>
+                      <Badge variant="outline" className="text-xs">
                         {payment.method === 'CARD' ? 'Carte' :
                          payment.method === 'CASH' ? 'Espèces' :
                          payment.method === 'TRANSFER' ? 'Virement' :
                          payment.method === 'CPF' ? 'CPF' : payment.method}
                       </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="success">
-                        Payé
-                      </Badge>
-                    </TableCell>
-                  </TableRow>
+                    </div>
+                  </div>
                 ))}
-              </TableBody>
-            </Table>
-          )}
-        </CardContent>
-      </Card>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   )
 }
