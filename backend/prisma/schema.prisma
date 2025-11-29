@@ -102,7 +102,7 @@ model Student {
   updatedAt         DateTime       @updatedAt
 
   // Relations
-  lessons           Lesson[]
+  lessonEnrollments LessonStudent[]
   payments          Payment[]
   documents         Document[]
   evaluations       Evaluation[]
@@ -230,9 +230,8 @@ enum LessonStatus {
 model Lesson {
   id              String        @id @default(cuid())
 
-  // Participants
-  studentId       String
-  student         Student       @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  // Participants - Support multi-élèves
+  students        LessonStudent[]
   instructorId    String?
   instructor      Instructor?   @relation(fields: [instructorId], references: [id])
   vehicleId       String?
@@ -244,6 +243,9 @@ model Lesson {
   startTime       DateTime
   endTime         DateTime
   duration        Float         // En heures (1.0, 1.5, 2.0, etc.)
+
+  // Cours collectif
+  isGroupLesson   Boolean       @default(false) // true si 2+ élèves
 
   // Contenu
   topic           String?       // Sujet de la leçon
@@ -262,6 +264,36 @@ model Lesson {
   booking         Booking?      @relation(fields: [bookingId], references: [id])
 
   @@map("lessons")
+}
+
+// ============================================
+// TABLE DE LIAISON LESSON-STUDENT
+// ============================================
+
+model LessonStudent {
+  id              String    @id @default(cuid())
+
+  // Relations
+  lessonId        String
+  lesson          Lesson    @relation(fields: [lessonId], references: [id], onDelete: Cascade)
+
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Gestion des présences
+  attended        Boolean   @default(true)    // Présent ou absent
+
+  // Tracking des heures déduites
+  hoursDeducted   Float?                      // Heures réellement déduites
+
+  // Notes spécifiques à l'élève pour cette leçon
+  studentNotes    String?
+
+  createdAt       DateTime  @default(now())
+
+  // Empêcher qu'un élève soit inscrit 2 fois à la même leçon
+  @@unique([lessonId, studentId])
+  @@map("lesson_students")
 }
 
 // ============================================

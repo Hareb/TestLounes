@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { packageController } from '../controllers/package.controller';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 

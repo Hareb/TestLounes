@@ -41,12 +41,16 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<vo
         status: { in: ['SCHEDULED', 'CONFIRMED'] }
       },
       include: {
-        student: {
+        students: {
           include: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true
+                  }
+                }
               }
             }
           }
@@ -162,13 +166,17 @@ export const getInstructorDashboard = async (req: Request, res: Response): Promi
         }
       },
       include: {
-        student: {
+        students: {
           include: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                phone: true
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    phone: true
+                  }
+                }
               }
             }
           }

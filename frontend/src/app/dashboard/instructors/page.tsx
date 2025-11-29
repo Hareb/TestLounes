@@ -10,6 +10,17 @@ import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react'
 import { instructorService } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useTranslation } from '@/lib/i18n/i18n-context'
+import { InstructorDialog } from '@/components/instructors/InstructorDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Instructor {
   id: string
@@ -35,6 +46,12 @@ export default function InstructorsPage() {
   const [search, setSearch] = useState('')
   const { toast } = useToast()
   const { t } = useTranslation()
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedInstructor, setSelectedInstructor] = useState<Instructor | undefined>(undefined)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [instructorToDelete, setInstructorToDelete] = useState<Instructor | null>(null)
 
   const fetchInstructors = async () => {
     try {
@@ -66,6 +83,43 @@ export default function InstructorsPage() {
     return <Badge variant={config.variant}>{config.label}</Badge>
   }
 
+  const handleCreate = () => {
+    setSelectedInstructor(undefined)
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (instructor: Instructor) => {
+    setSelectedInstructor(instructor)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteClick = (instructor: Instructor) => {
+    setInstructorToDelete(instructor)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!instructorToDelete) return
+
+    try {
+      await instructorService.delete(instructorToDelete.id)
+      toast({
+        title: 'Succès',
+        description: 'Moniteur supprimé avec succès',
+      })
+      fetchInstructors()
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.message || 'Impossible de supprimer le moniteur',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteDialogOpen(false)
+      setInstructorToDelete(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -74,7 +128,7 @@ export default function InstructorsPage() {
           <h1 className="text-3xl font-bold">{t.instructors.title}</h1>
           <p className="text-gray-600">{instructors.length} {t.instructors.total}</p>
         </div>
-        <Button>
+        <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
           {t.instructors.add}
         </Button>
@@ -164,10 +218,10 @@ export default function InstructorsPage() {
                         <Button variant="ghost" size="icon">
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(instructor)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(instructor)}>
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
@@ -179,6 +233,36 @@ export default function InstructorsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <InstructorDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        instructor={selectedInstructor}
+        onSuccess={fetchInstructors}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le moniteur{' '}
+              <strong>
+                {instructorToDelete?.user.firstName} {instructorToDelete?.user.lastName}
+              </strong>{' '}
+              sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

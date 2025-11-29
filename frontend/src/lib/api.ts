@@ -123,6 +123,9 @@ export const lessonService = {
   complete: (id: string, notes: string) =>
     api.patch(`/lessons/${id}/complete`, { notes }),
 
+  updateAttendance: (id: string, attendances: { studentId: string; attended: boolean }[]) =>
+    api.patch(`/lessons/${id}/attendance`, { attendances }),
+
   delete: (id: string) =>
     api.delete(`/lessons/${id}`),
 };

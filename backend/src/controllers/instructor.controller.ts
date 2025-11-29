@@ -69,12 +69,16 @@ export const getInstructorById = async (req: Request, res: Response): Promise<vo
         availabilities: true,
         lessons: {
           include: {
-            student: {
+            students: {
               include: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true
+                student: {
+                  include: {
+                    user: {
+                      select: {
+                        firstName: true,
+                        lastName: true
+                      }
+                    }
                   }
                 }
               }

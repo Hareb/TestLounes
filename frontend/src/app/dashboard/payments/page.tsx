@@ -5,11 +5,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Plus, Download } from 'lucide-react'
+import { Plus, Download, Edit, Trash2 } from 'lucide-react'
 import { paymentService } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { formatCurrency } from '@/lib/utils'
 import { useTranslation } from '@/lib/i18n/i18n-context'
+import { PaymentDialog } from '@/components/payments/PaymentDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Payment {
   id: string
@@ -33,6 +44,12 @@ export default function PaymentsPage() {
   const [loading, setLoading] = useState(true)
   const { toast } = useToast()
   const { t } = useTranslation()
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedPayment, setSelectedPayment] = useState<Payment | undefined>(undefined)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [paymentToDelete, setPaymentToDelete] = useState<Payment | null>(null)
 
   const fetchPayments = async () => {
     try {
@@ -81,6 +98,43 @@ export default function PaymentsPage() {
     .filter(p => p.status === 'COMPLETED')
     .reduce((sum, p) => sum + p.amount, 0)
 
+  const handleCreate = () => {
+    setSelectedPayment(undefined)
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (payment: Payment) => {
+    setSelectedPayment(payment)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteClick = (payment: Payment) => {
+    setPaymentToDelete(payment)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!paymentToDelete) return
+
+    try {
+      await paymentService.delete(paymentToDelete.id)
+      toast({
+        title: 'Succès',
+        description: 'Paiement supprimé avec succès',
+      })
+      fetchPayments()
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.message || 'Impossible de supprimer le paiement',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteDialogOpen(false)
+      setPaymentToDelete(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -94,7 +148,7 @@ export default function PaymentsPage() {
             <Download className="mr-2 h-4 w-4" />
             {t.common.export}
           </Button>
-          <Button>
+          <Button onClick={handleCreate}>
             <Plus className="mr-2 h-4 w-4" />
             {t.payments.add}
           </Button>
@@ -169,6 +223,7 @@ export default function PaymentsPage() {
                   <TableHead>{t.payments.amount}</TableHead>
                   <TableHead>{t.payments.method}</TableHead>
                   <TableHead>{t.common.status}</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -199,6 +254,16 @@ export default function PaymentsPage() {
                     <TableCell>
                       {getStatusBadge(payment.status)}
                     </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end space-x-2">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(payment)}>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(payment)}>
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
@@ -206,6 +271,38 @@ export default function PaymentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <PaymentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        payment={selectedPayment}
+        onSuccess={fetchPayments}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le paiement de{' '}
+              <strong>{paymentToDelete && formatCurrency(paymentToDelete.amount)}</strong>
+              {' '}pour{' '}
+              <strong>
+                {paymentToDelete?.student.user.firstName} {paymentToDelete?.student.user.lastName}
+              </strong>
+              {' '}sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

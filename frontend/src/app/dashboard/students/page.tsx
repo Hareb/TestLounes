@@ -10,6 +10,17 @@ import { Plus, Search, Eye, Edit, Trash2 } from 'lucide-react'
 import { studentService } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import Link from 'next/link'
+import { StudentDialog } from '@/components/students/StudentDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Student {
   id: string
@@ -36,6 +47,12 @@ export default function StudentsPage() {
   const [formationTypeFilter, setFormationTypeFilter] = useState<string>('')
   const [codeExamFilter, setCodeExamFilter] = useState<string>('')
   const { toast } = useToast()
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedStudent, setSelectedStudent] = useState<Student | undefined>(undefined)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [studentToDelete, setStudentToDelete] = useState<Student | null>(null)
 
   const fetchStudents = async () => {
     try {
@@ -87,6 +104,43 @@ export default function StudentsPage() {
     return <Badge variant="outline">{labels[type] || type}</Badge>
   }
 
+  const handleCreate = () => {
+    setSelectedStudent(undefined)
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (student: Student) => {
+    setSelectedStudent(student)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteClick = (student: Student) => {
+    setStudentToDelete(student)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!studentToDelete) return
+
+    try {
+      await studentService.delete(studentToDelete.id)
+      toast({
+        title: 'Succès',
+        description: 'Élève supprimé avec succès',
+      })
+      fetchStudents()
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.message || 'Impossible de supprimer l\'élève',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteDialogOpen(false)
+      setStudentToDelete(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -95,7 +149,7 @@ export default function StudentsPage() {
           <h1 className="text-3xl font-bold">Gestion des Élèves</h1>
           <p className="text-gray-600">{total} élève(s) au total</p>
         </div>
-        <Button>
+        <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
           Nouvel Élève
         </Button>
@@ -249,10 +303,10 @@ export default function StudentsPage() {
                             <Eye className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => handleEdit(student)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon">
+                        <Button variant="ghost" size="icon" onClick={() => handleDeleteClick(student)}>
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
@@ -284,6 +338,36 @@ export default function StudentsPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <StudentDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        student={selectedStudent}
+        onSuccess={fetchStudents}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. L'élève{' '}
+              <strong>
+                {studentToDelete?.user.firstName} {studentToDelete?.user.lastName}
+              </strong>{' '}
+              sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -48,7 +48,7 @@ export const getAllStudents = async (req: Request, res: Response): Promise<void>
           },
           _count: {
             select: {
-              lessons: true,
+              lessonEnrollments: true,
               payments: true
             }
           }
@@ -99,21 +99,24 @@ export const getStudentById = async (req: Request, res: Response): Promise<void>
             createdAt: true
           }
         },
-        lessons: {
+        lessonEnrollments: {
           include: {
-            instructor: {
+            lesson: {
               include: {
-                user: {
-                  select: {
-                    firstName: true,
-                    lastName: true
+                instructor: {
+                  include: {
+                    user: {
+                      select: {
+                        firstName: true,
+                        lastName: true
+                      }
+                    }
                   }
-                }
+                },
+                vehicle: true
               }
-            },
-            vehicle: true
+            }
           },
-          orderBy: { startTime: 'desc' },
           take: 10
         },
         payments: {
@@ -302,8 +305,15 @@ export const getStudentStats = async (req: Request, res: Response): Promise<void
     const student = await prisma.student.findUnique({
       where: { id },
       include: {
-        lessons: {
-          where: { status: 'COMPLETED' }
+        lessonEnrollments: {
+          where: {
+            lesson: {
+              status: 'COMPLETED'
+            }
+          },
+          include: {
+            lesson: true
+          }
         },
         evaluations: {
           orderBy: { createdAt: 'desc' },
@@ -337,7 +347,7 @@ export const getStudentStats = async (req: Request, res: Response): Promise<void
         driveExamPassed: student.driveExamPassed
       },
       latestEvaluation: student.evaluations[0] || null,
-      totalLessonsCompleted: student.lessons.length
+      totalLessonsCompleted: student.lessonEnrollments.length
     };
 
     res.json({

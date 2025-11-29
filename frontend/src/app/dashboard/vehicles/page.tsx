@@ -10,6 +10,17 @@ import { Plus, Search, Eye, Edit, Trash2, Wrench } from 'lucide-react'
 import { vehicleService } from '@/lib/api'
 import { useToast } from '@/hooks/use-toast'
 import { useTranslation } from '@/lib/i18n/i18n-context'
+import { VehicleDialog } from '@/components/vehicles/VehicleDialog'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 interface Vehicle {
   id: string
@@ -37,6 +48,12 @@ export default function VehiclesPage() {
   const [search, setSearch] = useState('')
   const { toast } = useToast()
   const { t } = useTranslation()
+
+  // Dialog states
+  const [dialogOpen, setDialogOpen] = useState(false)
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | undefined>(undefined)
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
+  const [vehicleToDelete, setVehicleToDelete] = useState<Vehicle | null>(null)
 
   const fetchVehicles = async () => {
     try {
@@ -85,6 +102,43 @@ export default function VehiclesPage() {
     v.plateNumber.toLowerCase().includes(search.toLowerCase())
   )
 
+  const handleCreate = () => {
+    setSelectedVehicle(undefined)
+    setDialogOpen(true)
+  }
+
+  const handleEdit = (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle)
+    setDialogOpen(true)
+  }
+
+  const handleDeleteClick = (vehicle: Vehicle) => {
+    setVehicleToDelete(vehicle)
+    setDeleteDialogOpen(true)
+  }
+
+  const handleDeleteConfirm = async () => {
+    if (!vehicleToDelete) return
+
+    try {
+      await vehicleService.delete(vehicleToDelete.id)
+      toast({
+        title: 'Succès',
+        description: 'Véhicule supprimé avec succès',
+      })
+      fetchVehicles()
+    } catch (error: any) {
+      toast({
+        title: 'Erreur',
+        description: error.response?.data?.message || 'Impossible de supprimer le véhicule',
+        variant: 'destructive',
+      })
+    } finally {
+      setDeleteDialogOpen(false)
+      setVehicleToDelete(null)
+    }
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -93,7 +147,7 @@ export default function VehiclesPage() {
           <h1 className="text-3xl font-bold">{t.vehicles.title}</h1>
           <p className="text-gray-600">{vehicles.length} {t.vehicles.total}</p>
         </div>
-        <Button>
+        <Button onClick={handleCreate}>
           <Plus className="mr-2 h-4 w-4" />
           {t.vehicles.add}
         </Button>
@@ -192,10 +246,10 @@ export default function VehiclesPage() {
                         <Button variant="ghost" size="icon" title={t.common.view}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title={t.common.edit}>
+                        <Button variant="ghost" size="icon" title={t.common.edit} onClick={() => handleEdit(vehicle)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" title={t.common.delete}>
+                        <Button variant="ghost" size="icon" title={t.common.delete} onClick={() => handleDeleteClick(vehicle)}>
                           <Trash2 className="h-4 w-4 text-red-500" />
                         </Button>
                       </div>
@@ -207,6 +261,36 @@ export default function VehiclesPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Create/Edit Dialog */}
+      <VehicleDialog
+        open={dialogOpen}
+        onOpenChange={setDialogOpen}
+        vehicle={selectedVehicle}
+        onSuccess={fetchVehicles}
+      />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Êtes-vous sûr ?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Cette action est irréversible. Le véhicule{' '}
+              <strong>
+                {vehicleToDelete?.brand} {vehicleToDelete?.model} ({vehicleToDelete?.plateNumber})
+              </strong>{' '}
+              sera définitivement supprimé.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Annuler</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteConfirm} className="bg-red-600 hover:bg-red-700">
+              Supprimer
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

@@ -252,7 +252,7 @@ export default function LogbookPage() {
                       onClick={() => validateCompetence(comp)}
                     >
                       <CheckCircle className="h-4 w-4 mr-2" />
-                      {t.logbook.validate} {t.logbook[`comp${comp}` as keyof typeof t.logbook]}
+                      {t.logbook.validate} {String(t.logbook[`comp${comp}` as keyof typeof t.logbook] || '')}
                     </Button>
                     <p className="text-xs text-gray-500 mt-2 text-center">
                       Toutes les compétences doivent être au niveau 3 minimum

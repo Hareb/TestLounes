@@ -9,6 +9,7 @@ import { dashboardService, packageService, examService, bookingService } from '@
 import { formatCurrency } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { useAuthStore } from '@/lib/store'
 
 interface DashboardStats {
   overview: {
@@ -25,6 +26,7 @@ interface DashboardStats {
 }
 
 export default function DashboardPage() {
+  const { isAuthenticated } = useAuthStore()
   const [stats, setStats] = useState<DashboardStats | null>(null)
   const [packageStats, setPackageStats] = useState<any>(null)
   const [examStats, setExamStats] = useState<any>(null)
@@ -36,38 +38,82 @@ export default function DashboardPage() {
   }, [])
 
   const fetchAllStats = async () => {
+    console.log('fetchAllStats: Starting to fetch dashboard stats')
+    console.log('fetchAllStats: API URL:', process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api')
+    console.log('fetchAllStats: Token exists:', !!localStorage.getItem('token'))
+    console.log('fetchAllStats: isAuthenticated:', isAuthenticated)
+
+    if (!isAuthenticated) {
+      console.log('fetchAllStats: Not authenticated, skipping API calls')
+      setLoading(false)
+      return
+    }
+
     try {
       // Fetch main stats
+      console.log('fetchAllStats: Fetching main dashboard stats')
       const response = await dashboardService.getStats()
+      console.log('fetchAllStats: Main stats response:', response)
       setStats(response.data.data)
 
       // Fetch package stats
       try {
+        console.log('fetchAllStats: Fetching package stats')
         const pkgStatsRes = await packageService.getStats()
+        console.log('fetchAllStats: Package stats response:', pkgStatsRes)
         setPackageStats(pkgStatsRes.data.data)
       } catch (error) {
-        console.error('Error fetching package stats:', error)
+        console.error('fetchAllStats: Error fetching package stats:', error)
+        console.error('fetchAllStats: Package stats error details:', {
+          message: (error as any)?.message,
+          status: (error as any)?.response?.status,
+          data: (error as any)?.response?.data,
+          url: (error as any)?.config?.url
+        })
       }
 
       // Fetch exam stats
       try {
+        console.log('fetchAllStats: Fetching exam stats')
         const examStatsRes = await examService.getStats()
+        console.log('fetchAllStats: Exam stats response:', examStatsRes)
         setExamStats(examStatsRes.data.data)
       } catch (error) {
-        console.error('Error fetching exam stats:', error)
+        console.error('fetchAllStats: Error fetching exam stats:', error)
+        console.error('fetchAllStats: Exam stats error details:', {
+          message: (error as any)?.message,
+          status: (error as any)?.response?.status,
+          data: (error as any)?.response?.data,
+          url: (error as any)?.config?.url
+        })
       }
 
       // Fetch pending bookings
       try {
+        console.log('fetchAllStats: Fetching pending bookings')
         const bookingsRes = await bookingService.getAll()
+        console.log('fetchAllStats: Bookings response:', bookingsRes)
         const pending = bookingsRes.data.data?.filter((b: any) => b.status === 'PENDING') || []
         setPendingBookings(pending.slice(0, 5)) // Show only first 5
       } catch (error) {
-        console.error('Error fetching bookings:', error)
+        console.error('fetchAllStats: Error fetching bookings:', error)
+        console.error('fetchAllStats: Bookings error details:', {
+          message: (error as any)?.message,
+          status: (error as any)?.response?.status,
+          data: (error as any)?.response?.data,
+          url: (error as any)?.config?.url
+        })
       }
     } catch (error) {
-      console.error('Error fetching stats:', error)
+      console.error('fetchAllStats: Error fetching main stats:', error)
+      console.error('fetchAllStats: Main stats error details:', {
+        message: (error as any)?.message,
+        status: (error as any)?.response?.status,
+        data: (error as any)?.response?.data,
+        url: (error as any)?.config?.url
+      })
     } finally {
+      console.log('fetchAllStats: Finished fetching, setting loading to false')
       setLoading(false)
     }
   }
@@ -289,30 +335,41 @@ export default function DashboardPage() {
               <p className="text-gray-500 text-center py-4">Aucune leçon prévue</p>
             ) : (
               <div className="space-y-3">
-                {stats.upcomingLessons.slice(0, 5).map((lesson) => (
-                  <div key={lesson.id} className="flex justify-between items-center p-3 border rounded-lg">
-                    <div className="flex-1">
-                      <p className="font-medium">
-                        {lesson.student.user.firstName} {lesson.student.user.lastName}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {new Date(lesson.startTime).toLocaleDateString('fr-FR', {
-                          day: '2-digit',
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                        {' avec '}
-                        {lesson.instructor?.user.firstName}
-                      </p>
+                {stats.upcomingLessons.slice(0, 5).map((lesson) => {
+                  const students = lesson.students || []
+                  const isGroup = students.length > 1
+
+                  return (
+                    <div key={lesson.id} className="flex justify-between items-center p-3 border rounded-lg">
+                      <div className="flex-1">
+                        <p className="font-medium">
+                          {isGroup ? (
+                            <span>👥 Groupe ({students.length} élèves)</span>
+                          ) : students.length === 1 ? (
+                            <span>{students[0].student.user.firstName} {students[0].student.user.lastName}</span>
+                          ) : (
+                            <span>Leçon sans élève</span>
+                          )}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {new Date(lesson.startTime).toLocaleDateString('fr-FR', {
+                            day: '2-digit',
+                            month: 'short',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                          {' avec '}
+                          {lesson.instructor?.user.firstName}
+                        </p>
+                      </div>
+                      <Badge variant={lesson.type === 'DRIVE' ? 'default' : 'secondary'}>
+                        {lesson.type === 'DRIVE' ? 'Conduite' :
+                         lesson.type === 'CODE' ? 'Code' :
+                         lesson.type === 'EVALUATION' ? 'Évaluation' : 'Examen'}
+                      </Badge>
                     </div>
-                    <Badge variant={lesson.type === 'DRIVE' ? 'default' : 'secondary'}>
-                      {lesson.type === 'DRIVE' ? 'Conduite' :
-                       lesson.type === 'CODE' ? 'Code' :
-                       lesson.type === 'EVALUATION' ? 'Évaluation' : 'Examen'}
-                    </Badge>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </CardContent>

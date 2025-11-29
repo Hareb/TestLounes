@@ -7,7 +7,16 @@ export const getAllLessons = async (req: Request, res: Response): Promise<void> 
     const { studentId, instructorId, status, type, startDate, endDate } = req.query;
 
     const where: any = {};
-    if (studentId) where.studentId = studentId;
+
+    // CHANGÉ: Filtre par élève via la table de liaison
+    if (studentId) {
+      where.students = {
+        some: {
+          studentId: studentId
+        }
+      };
+    }
+
     if (instructorId) where.instructorId = instructorId;
     if (status) where.status = status;
     if (type) where.type = type;
@@ -21,13 +30,17 @@ export const getAllLessons = async (req: Request, res: Response): Promise<void> 
     const lessons = await prisma.lesson.findMany({
       where,
       include: {
-        student: {
+        students: {
           include: {
-            user: {
-              select: {
-                firstName: true,
-                lastName: true,
-                phone: true
+            student: {
+              include: {
+                user: {
+                  select: {
+                    firstName: true,
+                    lastName: true,
+                    phone: true
+                  }
+                }
               }
             }
           }
@@ -67,9 +80,13 @@ export const getLessonById = async (req: Request, res: Response): Promise<void> 
     const lesson = await prisma.lesson.findUnique({
       where: { id },
       include: {
-        student: {
+        students: {
           include: {
-            user: true
+            student: {
+              include: {
+                user: true
+              }
+            }
           }
         },
         instructor: {
@@ -105,7 +122,7 @@ export const getLessonById = async (req: Request, res: Response): Promise<void> 
 export const createLesson = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
-      studentId,
+      studentIds, // CHANGÉ: accepte un tableau d'IDs
       instructorId,
       vehicleId,
       type,
@@ -115,11 +132,20 @@ export const createLesson = async (req: Request, res: Response): Promise<void> =
       location
     } = req.body;
 
+    // Validation: au moins 1 élève requis
+    if (!studentIds || !Array.isArray(studentIds) || studentIds.length === 0) {
+      res.status(400).json({
+        success: false,
+        message: 'Au moins un élève est requis'
+      });
+      return;
+    }
+
     // Calculer l'heure de fin
     const start = new Date(startTime);
     const end = new Date(start.getTime() + duration * 60 * 60 * 1000);
 
-    // Vérifier les conflits de planning
+    // Vérifier les conflits de planning pour moniteur/véhicule
     const conflicts = await prisma.lesson.findMany({
       where: {
         OR: [
@@ -137,14 +163,53 @@ export const createLesson = async (req: Request, res: Response): Promise<void> =
     if (conflicts.length > 0) {
       res.status(409).json({
         success: false,
-        message: 'Conflit de planning détecté'
+        message: 'Conflit de planning détecté pour le moniteur ou le véhicule'
       });
       return;
     }
 
+    // NOUVEAU: Vérifier les conflits pour les élèves
+    const studentConflicts = await prisma.lesson.findMany({
+      where: {
+        students: {
+          some: {
+            studentId: { in: studentIds }
+          }
+        },
+        status: { in: ['SCHEDULED', 'CONFIRMED'] },
+        AND: [
+          { startTime: { lte: end } },
+          { endTime: { gte: start } }
+        ]
+      },
+      include: {
+        students: {
+          include: {
+            student: {
+              include: {
+                user: { select: { firstName: true, lastName: true } }
+              }
+            }
+          }
+        }
+      }
+    });
+
+    if (studentConflicts.length > 0) {
+      const conflictedStudents = studentConflicts[0].students
+        .map(s => `${s.student.user.firstName} ${s.student.user.lastName}`)
+        .join(', ');
+
+      res.status(409).json({
+        success: false,
+        message: `Conflit de planning pour: ${conflictedStudents}`
+      });
+      return;
+    }
+
+    // Créer la leçon avec plusieurs élèves
     const lesson = await prisma.lesson.create({
       data: {
-        studentId,
         instructorId,
         vehicleId,
         type,
@@ -152,12 +217,22 @@ export const createLesson = async (req: Request, res: Response): Promise<void> =
         endTime: end,
         duration,
         topic,
-        location
+        location,
+        isGroupLesson: studentIds.length > 1, // Marquer comme cours collectif si 2+ élèves
+        students: {
+          create: studentIds.map(studentId => ({
+            studentId
+          }))
+        }
       },
       include: {
-        student: {
+        students: {
           include: {
-            user: true
+            student: {
+              include: {
+                user: true
+              }
+            }
           }
         },
         instructor: {
@@ -202,9 +277,13 @@ export const updateLesson = async (req: Request, res: Response): Promise<void> =
         ...(updateData.endTime && { endTime: new Date(updateData.endTime) })
       },
       include: {
-        student: {
+        students: {
           include: {
-            user: true
+            student: {
+              include: {
+                user: true
+              }
+            }
           }
         },
         instructor: {
@@ -270,23 +349,59 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
         notes
       },
       include: {
-        student: true
+        students: {
+          include: {
+            student: true
+          }
+        },
+        instructor: true
       }
     });
 
-    // Mettre à jour les heures utilisées de l'élève
-    if (lesson.type === LessonType.CODE) {
-      await prisma.student.update({
-        where: { id: lesson.studentId },
-        data: {
-          codeHoursUsed: { increment: lesson.duration }
+    // Déduire les heures COMPLÈTES pour CHAQUE élève PRÉSENT
+    const hoursPerStudent = lesson.duration; // Chaque élève perd la durée complète (choix de l'utilisateur)
+
+    for (const enrollment of lesson.students) {
+      // Vérifier si l'élève était présent (par défaut: true)
+      if (enrollment.attended) {
+        // Déduire les heures selon le type de cours
+        if (lesson.type === LessonType.CODE) {
+          await prisma.student.update({
+            where: { id: enrollment.studentId },
+            data: {
+              codeHoursUsed: { increment: hoursPerStudent }
+            }
+          });
+        } else if (lesson.type === LessonType.DRIVE || lesson.type === LessonType.EXAM_PREPARATION) {
+          await prisma.student.update({
+            where: { id: enrollment.studentId },
+            data: {
+              driveHoursUsed: { increment: hoursPerStudent }
+            }
+          });
         }
-      });
-    } else if (lesson.type === LessonType.DRIVE || lesson.type === LessonType.EXAM_PREPARATION) {
-      await prisma.student.update({
-        where: { id: lesson.studentId },
+
+        // Tracker les heures déduites dans la table de liaison
+        await prisma.lessonStudent.update({
+          where: {
+            lessonId_studentId: {
+              lessonId: lesson.id,
+              studentId: enrollment.studentId
+            }
+          },
+          data: {
+            hoursDeducted: hoursPerStudent
+          }
+        });
+      }
+    }
+
+    // Mettre à jour les heures enseignées du moniteur (une seule fois)
+    if (lesson.instructorId) {
+      await prisma.instructor.update({
+        where: { id: lesson.instructorId },
         data: {
-          driveHoursUsed: { increment: lesson.duration }
+          totalHoursTaught: { increment: lesson.duration }
         }
       });
     }
@@ -305,10 +420,142 @@ export const completeLesson = async (req: Request, res: Response): Promise<void>
   }
 };
 
+// Mettre à jour les présences des élèves d'une leçon
+export const updateAttendance = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { id } = req.params;
+    const { attendances } = req.body; // Array: [{ studentId, attended: boolean }]
+
+    if (!attendances || !Array.isArray(attendances)) {
+      res.status(400).json({
+        success: false,
+        message: 'Format de données invalide'
+      });
+      return;
+    }
+
+    // Vérifier que la leçon existe
+    const lesson = await prisma.lesson.findUnique({
+      where: { id },
+      include: {
+        students: true
+      }
+    });
+
+    if (!lesson) {
+      res.status(404).json({
+        success: false,
+        message: 'Leçon non trouvée'
+      });
+      return;
+    }
+
+    // Mettre à jour chaque présence
+    for (const attendance of attendances) {
+      await prisma.lessonStudent.update({
+        where: {
+          lessonId_studentId: {
+            lessonId: id,
+            studentId: attendance.studentId
+          }
+        },
+        data: {
+          attended: attendance.attended
+        }
+      });
+    }
+
+    // Récupérer la leçon mise à jour
+    const updatedLesson = await prisma.lesson.findUnique({
+      where: { id },
+      include: {
+        students: {
+          include: {
+            student: {
+              include: {
+                user: true
+              }
+            }
+          }
+        }
+      }
+    });
+
+    res.json({
+      success: true,
+      message: 'Présences mises à jour avec succès',
+      data: updatedLesson
+    });
+  } catch (error) {
+    console.error('Update attendance error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Erreur lors de la mise à jour des présences'
+    });
+  }
+};
+
 export const deleteLesson = async (req: Request, res: Response): Promise<void> => {
   try {
     const { id } = req.params;
 
+    // Récupérer la leçon avant de la supprimer pour ajuster les heures si nécessaire
+    const lesson = await prisma.lesson.findUnique({
+      where: { id },
+      include: {
+        students: {
+          include: {
+            student: true
+          }
+        },
+        instructor: true
+      }
+    });
+
+    if (!lesson) {
+      res.status(404).json({
+        success: false,
+        message: 'Leçon non trouvée'
+      });
+      return;
+    }
+
+    // Si la leçon était COMPLETED, décrémenter les heures pour TOUS les élèves
+    if (lesson.status === LessonStatus.COMPLETED) {
+      for (const enrollment of lesson.students) {
+        // Utiliser les heures déduites enregistrées (si disponibles) pour plus de précision
+        const hoursToReturn = enrollment.hoursDeducted || lesson.duration;
+
+        // Décrémenter les heures selon le type de cours
+        if (lesson.type === LessonType.CODE) {
+          await prisma.student.update({
+            where: { id: enrollment.studentId },
+            data: {
+              codeHoursUsed: { decrement: hoursToReturn }
+            }
+          });
+        } else if (lesson.type === LessonType.DRIVE || lesson.type === LessonType.EXAM_PREPARATION) {
+          await prisma.student.update({
+            where: { id: enrollment.studentId },
+            data: {
+              driveHoursUsed: { decrement: hoursToReturn }
+            }
+          });
+        }
+      }
+
+      // Décrémenter les heures du moniteur
+      if (lesson.instructorId) {
+        await prisma.instructor.update({
+          where: { id: lesson.instructorId },
+          data: {
+            totalHoursTaught: { decrement: lesson.duration }
+          }
+        });
+      }
+    }
+
+    // Supprimer la leçon (CASCADE supprimera automatiquement les entrées lesson_students)
     await prisma.lesson.delete({
       where: { id }
     });

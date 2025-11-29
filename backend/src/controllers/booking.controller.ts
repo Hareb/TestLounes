@@ -476,7 +476,11 @@ export const bookingController = {
       // Create lesson
       const lesson = await prisma.lesson.create({
         data: {
-          studentId: booking.studentId,
+          students: {
+            create: {
+              studentId: booking.studentId
+            }
+          },
           instructorId: booking.instructorId,
           vehicleId: booking.vehicleId,
           type: booking.type,

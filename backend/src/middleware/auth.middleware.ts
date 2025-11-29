@@ -62,3 +62,7 @@ export const authorize = (...roles: Role[]) => {
     next();
   };
 };
+
+// Alias pour compatibilité
+export const authenticateToken = authenticate;
+export const authorizeRoles = authorize;

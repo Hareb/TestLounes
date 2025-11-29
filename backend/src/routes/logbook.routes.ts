@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { logbookController } from '../controllers/logbook.controller';
-import { authenticateToken, authorizeRoles } from '../middleware/auth';
+import { authenticateToken, authorizeRoles } from '../middleware/auth.middleware';
 
 const router = Router();
 

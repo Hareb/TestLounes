@@ -140,10 +140,20 @@ export default function InstructorDashboardPage() {
                     </TableCell>
                     <TableCell>
                       <div>
-                        <p className="font-medium">
-                          {lesson.student.user.firstName} {lesson.student.user.lastName}
-                        </p>
-                        <p className="text-sm text-gray-500">{lesson.student.user.phone}</p>
+                        {lesson.students && lesson.students.length > 1 ? (
+                          <p className="font-medium">
+                            👥 Groupe ({lesson.students.length} élèves)
+                          </p>
+                        ) : lesson.students && lesson.students.length === 1 ? (
+                          <>
+                            <p className="font-medium">
+                              {lesson.students[0].student.user.firstName} {lesson.students[0].student.user.lastName}
+                            </p>
+                            <p className="text-sm text-gray-500">{lesson.students[0].student.user.phone}</p>
+                          </>
+                        ) : (
+                          <p className="text-gray-400">Aucun élève</p>
+                        )}
                       </div>
                     </TableCell>
                     <TableCell>

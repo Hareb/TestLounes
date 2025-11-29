@@ -6,6 +6,7 @@ import {
   updateLesson,
   cancelLesson,
   completeLesson,
+  updateAttendance,
   deleteLesson
 } from '../controllers/lesson.controller';
 import { authenticate, authorize } from '../middleware/auth.middleware';
@@ -20,6 +21,7 @@ router.post('/', authorize('ADMIN', 'SECRETARY', 'INSTRUCTOR'), createLesson);
 router.put('/:id', authorize('ADMIN', 'SECRETARY', 'INSTRUCTOR'), updateLesson);
 router.patch('/:id/cancel', cancelLesson);
 router.patch('/:id/complete', authorize('ADMIN', 'INSTRUCTOR'), completeLesson);
+router.patch('/:id/attendance', authorize('ADMIN', 'INSTRUCTOR'), updateAttendance);
 router.delete('/:id', authorize('ADMIN'), deleteLesson);
 
 export default router;
